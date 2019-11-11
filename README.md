@@ -6,8 +6,7 @@ in python3. Supports storing and pulling backups from S3 storage.
 
 ## Requirements
 
-* Python 3
-* tar executable with ability to compress/uncompress `.tar.gz` files
+* python3, python3-tarfile
 * s3cmd executable
 
 
@@ -23,8 +22,24 @@ using S3 storage.
 1. Create a full backup of a given directory
 
 ```
-$ ./abackup.py full-backup --dir /path/of/directory/to/backup
+$ ./abackup.py backup --dir /path/of/directory/to/backup [--s3]
 ```
 
+2. Perform a differential backup, using `timestamp` as base:
+
+```
+$ ./abackup.py backup --dir /path/of/directory/to/backup [--s3] --after [timestamp]
+```
+
+3. Perform a differential backup, using most recent S3 backup as base:
+
+```
+$ ./abackup.py backup --dir /path/to/dir --s3 --after s3
+```
 
 ## Notes
+
+TODO
+
+
+~ Aggelos Kolaitis <neoaggelos@gmail.com>

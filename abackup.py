@@ -14,20 +14,26 @@ def timestamp():
 
 
 def s3_get_latest_full_backup_time(args):
-    path = 's3://{}/{}/'.format(args.config.s3bucket, os.path.dirname(args.config.full_backup_name))
-    stdout = subprocess.run(['s3cmd', 'ls', path], stdout=subprocess.PIPE).stdout.decode()
+    path = 's3://{}/{}/'.format(
+        args.config.s3bucket, os.path.dirname(args.config.full_backup_name))
+    stdout = subprocess.run(
+        ['s3cmd', 'ls', path], stdout=subprocess.PIPE).stdout.decode()
     result = []
     for line in stdout.split('\n'):
-        match = re.match(r'.*s3:\/\/{}\/backups\/{}_full_(\d+)\.tar\.gz'.format(args.config.s3bucket, args.id), line)
+        match = re.match(
+            r'.*s3:\/\/{}\/backups\/{}_full_(\d+)\.tar\.gz'.format(
+                args.config.s3bucket, args.id), line)
+
         if match and match.groups():
             result.append(int(match.groups()[0]))
 
     return max(result)
 
+
 class Config():
     s3cmd = 's3cmd'
     s3cmd_cfg = os.path.expanduser('~/.s3cfg')
-    s3bucket = 'evocdn'
+    s3bucket = 'BUCKET'
 
     full_backup_name = 'backups/{id}_full_{full_date}.tar.gz'
     diff_backup_name = 'backups/{id}_full_{full_date}_diff_{diff_date}.tar.gz'
