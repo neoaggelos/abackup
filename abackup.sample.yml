@@ -1,0 +1,10 @@
+---
+s3cmd: s3cmd
+s3cmd_cfg: /home/neo/.s3cmd.cfg
+tar: tar
+
+full_backup_name: 'backups/%(folder)s/full_%(full_date)s'
+diff_backup_name: 'backups/%(folder)s/full_%(full_date)s_diff_%(diff_date)s'
+
+overrides:
+  /var/www/html: {}
