@@ -74,6 +74,21 @@ def s3_get_latest_full_backup(args, backups):
     return res
 
 
+def s3_get_latest_diff_backup(args, backups, full_ts):
+    res = {'diff_ts': -1}
+
+    for backup in backups[args.id]:
+        if 'diff_ts' in backup and backup['full_ts'] == full_ts and backup['diff_ts'] > res['diff_ts']:
+            res = backup
+
+    return res
+
+
+def s3_get_file(args, remote_path, dest_path):
+    print(f'Retrieving {remote_path}')
+    subprocess.run(['s3cmd', 'get', remote_path, dest_path, '--force'])
+
+
 class Config():
     s3cmd = 's3cmd'
     s3cmd_cfg = os.path.expanduser('~/.s3cfg')
@@ -110,6 +125,12 @@ def archive(filename, source_path, after=-1):
                     tar.add(full_name)
 
 
+def unarchive(filename, dest_path):
+    """Extract files from @filename to @dest_path"""
+    with tarfile.open(filename, 'r:gz') as t:
+        t.extractall(dest_path)
+
+
 def backup(args):
     """Perform full backup"""
 
@@ -138,6 +159,43 @@ def list_backups(args):
             print('[{}] [{}] {}'.format('diff' if 'diff_ts' in val else 'full', datetime.fromtimestamp(val.get('diff_ts', val['full_ts'])), val['path']))
 
 
+def restore(args):
+    if not args.id:
+        error('[ERR] Missing required parameter --id')
+
+    if not args.dir:
+        error('[ERR] Missing required parameter --dir')
+
+    backups = s3_get_backups(args)
+
+    # get latest full backup
+    full_backup = s3_get_latest_full_backup(args, backups)
+    diff_backup = s3_get_latest_diff_backup(args, backups, full_backup['full_ts'])
+
+    if full_backup['full_ts'] == -1:
+        error('[ERR] No backups for {}!'.format(args.id))
+
+    print('Attempting to restore the following backup:\n')
+    to_restore = [full_backup['path']]
+    if diff_backup['diff_ts'] == -1:
+        print('Backup:'.ljust(10), full_backup['path'].ljust(100), datetime.fromtimestamp(full_backup['full_ts']))
+    else:
+        to_restore.append(diff_backup['path'])
+        print('Backup:'.ljust(10), diff_backup['path'].ljust(100), datetime.fromtimestamp(diff_backup['diff_ts']))
+        print('Using:'.ljust(10), full_backup['path'].ljust(100), datetime.fromtimestamp(diff_backup['full_ts']))
+
+    print('Backup will be restored under: ', args.dir)
+
+    if not args.force:
+        resp = input('\nAre you sure? [y/N] ')
+        if resp != 'y':
+            error('[ERR] Aborted!')
+
+    for remote_file in to_restore:
+        fname = os.path.join('/tmp', os.path.basename(remote_file))
+        s3_get_file(args, remote_file, fname)
+        unarchive(fname, args.dir)
+
 
 def abackup(args):
     """Loads configuration and passed control performs the requested action"""
@@ -159,16 +217,23 @@ def abackup(args):
     if args.action == 'list':
         return list_backups(args)
 
+    if args.action == 'restore':
+        if args.dir is None:
+            args.dir = '/'
+        return restore(args)
+
+
 def main():
     """Parses arguments"""
     parser = argparse.ArgumentParser(description='Backup/restore tool')
 
-    parser.add_argument('action', choices=['backup', 'list'])
+    parser.add_argument('action', choices=['backup', 'list', 'restore'])
     parser.add_argument('-d', '--dir', help='Directory to backup/restore files from')
     parser.add_argument('-i', '--id', help='Directory to backup/restore files from')
     parser.add_argument('-c', '--config', help='Path to config file', default='abackup.yml')
     parser.add_argument('-s', '--s3', help='Push backup to S3 storage', default=False, action='store_true')
     parser.add_argument('-a', '--after', help='Only backup files after AFTER (UNIX timestamp). Can be "s3", to pull the latest backup from S3')
+    parser.add_argument('-f', '--force', help='Force restore', default=False, action='store_true')
     args = parser.parse_args()
 
     # parse config file
