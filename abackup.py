@@ -127,7 +127,14 @@ def archive(filename, source_path, after=-1):
 
 def unarchive(filename, dest_path):
     """Extract files from @filename to @dest_path"""
+    abs_dest_path = os.path.absolute(dest_path)
     with tarfile.open(filename, 'r:gz') as t:
+        # https://github.com/neoaggelos/abackup/pull/1
+        for member in tar.getmembers():
+            member_path = os.path.join(abs_dest_path, member.name)
+            if os.path.commonprefix([abs_dest_path, member_path]) != abs_dest_path:
+                raise Exception("attempted path traversal in tar file")
+
         t.extractall(dest_path)
 
 
